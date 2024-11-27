@@ -1,7 +1,7 @@
 "use client";
 import axios from "axios";
 
-export default function BorrarVenta({ id }) {
+export default function CancelarVenta({ id, reloadVentas }) {
     async function cancelarVenta(e) {
         e.preventDefault();
         const confirmacion = window.confirm("¿Estás seguro de que deseas cancelar esta venta?");
@@ -9,7 +9,7 @@ export default function BorrarVenta({ id }) {
             try {
                 const url = `http://localhost:3000/ventas/cancelarVenta/${id}`;
                 await axios.put(url);
-                window.location.reload();
+                reloadVentas(); // Llama a la función para recargar las ventas
             } catch (error) {
                 console.error("Error al cancelar la venta:", error);
             }

@@ -1,5 +1,6 @@
-var ruta = require("express").Router();
-var { mostrarProductos, nuevoProducto, borrarProducto, buscarProductoPorId, modificarProducto } = require("../bd/productosBD");
+const ruta = require("express").Router();
+const { mostrarProductos, nuevoProducto, borrarProducto, buscarProductoPorId, modificarProducto } = require("../bd/productosBD");
+const productosBD = require("../bd/conexion").productos; // Importar productosBD para buscarProductoPorNombre
 
 ruta.get("/", async (req, res) => {
     const productos = await mostrarProductos();
@@ -7,26 +8,40 @@ ruta.get("/", async (req, res) => {
 });
 
 ruta.get("/buscarPorId/:id", async (req, res) => {
-    var productoValido = await buscarProductoPorId(req.params.id);
+    const productoValido = await buscarProductoPorId(req.params.id);
     res.json(productoValido);
 });
 
 ruta.delete("/borrarProducto/:id", async (req, res) => {
-    var borrado = await borrarProducto(req.params.id);
+    const borrado = await borrarProducto(req.params.id);
     res.json(borrado);
 });
 
 ruta.post("/nuevoProducto", async (req, res) => {
-    var productoValido = await nuevoProducto(req.body);
+    const productoValido = await nuevoProducto(req.body);
     res.json(productoValido);
 });
 
-// Ruta para modificar producto
 ruta.put("/modificarProducto/:id", async (req, res) => {
     const id = req.params.id;
     const datosProducto = req.body;
     const resultado = await modificarProducto(id, datosProducto);
     res.json(resultado);
+});
+
+ruta.get("/buscarProductoPorNombre/:nombre", async (req, res) => {
+    const nombre = req.params.nombre.toLowerCase();
+    const productosSnapshot = await productosBD.get();
+    const productos = [];
+    
+    productosSnapshot.forEach((doc) => {
+        const producto = doc.data();
+        if (producto.producto.toLowerCase().includes(nombre)) {
+            productos.push({ id: doc.id, nombre: producto.producto });
+        }
+    });
+    
+    res.json(productos);
 });
 
 module.exports = ruta;

@@ -2,21 +2,15 @@ const productosBD = require("./conexion").productos;
 const Producto = require("../clases/ProductoClase");
 
 function validarDatosProducto(producto) {
-    var datosCorrectos = false;
-    
-    if (producto.producto != undefined && producto.cantidad != undefined && producto.precio != undefined) {
-        datosCorrectos = true;
-    }
-    
-    return datosCorrectos;
+    return producto.producto !== undefined && producto.cantidad !== undefined && producto.precio !== undefined;
 }
 
 async function mostrarProductos() {
     const productos = await productosBD.get();
-    var productosValidos = [];
+    const productosValidos = [];
     
     productos.forEach(producto => {
-        const productoData = new Producto({id: producto.id, ...producto.data()});
+        const productoData = new Producto({ id: producto.id, ...producto.data() });
         const productoValido = productoData.getproducto;
         if (validarDatosProducto(productoValido)) {
             productosValidos.push(productoValido);
@@ -28,14 +22,9 @@ async function mostrarProductos() {
 
 async function buscarProductoPorId(id) {
     const producto = await productosBD.doc(id).get();
-    const productoData = new Producto({id: producto.id, ...producto.data()});
-    var productoValido = { error: true };
+    const productoData = new Producto({ id: producto.id, ...producto.data() });
     
-    if (validarDatosProducto(productoData.getproducto)) {
-        productoValido = productoData.getproducto;
-    }
-    
-    return productoValido;
+    return validarDatosProducto(productoData.getproducto) ? productoData.getproducto : { error: true };
 }
 
 async function nuevoProducto(data) {
@@ -44,41 +33,32 @@ async function nuevoProducto(data) {
     }
     
     const productoData = new Producto(data);
-    var productoValido = false;
-
     if (validarDatosProducto(productoData.getproducto)) {
         await productosBD.doc().set(productoData.getproducto);
-        productoValido = true;
+        return true;
     }
 
-    return productoValido;
+    return false;
 }
 
 async function borrarProducto(id) {
     const producto = await buscarProductoPorId(id);
-    var borrado = false;
-    
-    if (producto.error != true) {
-        await productosBD.doc(id).delete();
-        borrado = true;
-    }
-    
-    return borrado;
+    if (producto.error) return false;
+
+    await productosBD.doc(id).delete();
+    return true;
 }
 
 async function modificarProducto(id, data) {
-    // Verificar que los campos requeridos están presentes
     if (!data.producto && !data.cantidad && !data.precio) {
         return { error: "Faltan datos para modificar el producto" };
     }
     
-    // Validar los datos que se van a actualizar
     const productoData = new Producto(data);
     if (!validarDatosProducto(productoData.getproducto)) {
         return { error: "Datos no válidos para modificar el producto" };
     }
     
-    // Intentar actualizar el producto en Firestore
     try {
         await productosBD.doc(id).update(data);
         return { success: true, message: "Producto modificado exitosamente" };
@@ -87,7 +67,6 @@ async function modificarProducto(id, data) {
         return { error: "No se pudo modificar el producto" };
     }
 }
-
 
 module.exports = {
     mostrarProductos,

@@ -2,6 +2,7 @@ class Venta {
     constructor(data) {
         this.idUsuario = data.idUsuario;
         this.idProducto = data.idProducto;
+        this.cantidad = data.cantidad;
         this.fecha = data.fecha || new Date().toISOString().split('T')[0]; // Fecha actual si no se proporciona
         this.hora = data.hora || new Date().toLocaleTimeString(); // Hora actual si no se proporciona
         this.estatus = data.estatus || "vendido"; // Estatus por defecto
@@ -31,6 +32,10 @@ class Venta {
         this._estatus = estatus;
     }
 
+    set cantidad(cantidad) { 
+        this._cantidad = cantidad; 
+    }
+
     get id() {
         return this._id;
     }
@@ -55,10 +60,15 @@ class Venta {
         return this._estatus;
     }
 
+    get cantidad() { 
+        return this._cantidad; 
+    }
+
     get getventa() {
         return {
             idUsuario: this.idUsuario,
             idProducto: this.idProducto,
+            cantidad: this.cantidad,
             fecha: this.fecha,
             hora: this.hora,
             estatus: this.estatus

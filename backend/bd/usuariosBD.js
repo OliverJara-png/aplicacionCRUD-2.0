@@ -1,87 +1,85 @@
-const usuariosBD = require("./conexion").usuarios;
+const { usuarios: usuariosBD } = require("./conexion"); // Asegura que 'usuariosBD' esté definido
 const Usuario = require("../clases/UsuarioClase");
-const {encriptarPassword, validarPassword}=require("../middlewares/funcionesPassword");
+const { encriptarPassword, validarPassword } = require("../middlewares/funcionesPassword");
 
-function validarDatos(usuario2){
-    var datosCorrectos=false;
-
-    if(usuario2.nombre != undefined && usuario2.usuario != undefined && usuario2.password != undefined){
-        datosCorrectos=true;
-    }
-
-    return datosCorrectos;
+function validarDatos(usuario2) {
+    return usuario2.nombre !== undefined && usuario2.usuario !== undefined && usuario2.password !== undefined;
 }
 
-async function mostrarUsuarios(){
+async function login(req, usuario, password) {
+    const usuarios = await usuariosBD.where("usuario", "==", usuario).get();
+    let user = { usuario: "anonimo", tipoUsuario: "sin acceso" };
+
+    usuarios.forEach(usu => {
+        const passwordValido = validarPassword(password, usu.data().password, usu.data().salt);
+        if (passwordValido) {
+            if (usu.data().tipoUsuario === "usuario") {
+                req.session.usuario = usu.data().usuario;
+                user = { usuario: req.session.usuario, tipoUsuario: "usuario" };
+            } else if (usu.data().tipoUsuario === "admin") {
+                req.session.admin = usu.data().usuario;
+                user = { usuario: req.session.admin, tipoUsuario: "admin" };
+            }
+        }
+    });
+    return user;
+}
+
+async function mostrarUsuarios() {
     const usuarios = await usuariosBD.get();
-    //console.log(usuarios);
-    var usuariosValidos = [];
+    const usuariosValidos = [];
+
     usuarios.forEach(usuario => {
-        //console.log(usuario.id);
-        const usuario1 = new Usuario({id:usuario.id, ...usuario.data()});
-        const usuario2 = usuario1.getusuario
-        //console.log(usuario1.getusuario);
-        if(validarDatos(usuario2)){
+        const usuario1 = new Usuario({ id: usuario.id, ...usuario.data() });
+        const usuario2 = usuario1.getusuario;
+        if (validarDatos(usuario2)) {
             usuariosValidos.push(usuario2);
         }
     });
-    //console.log(usuariosValidos); 
-    return usuariosValidos; 
+    return usuariosValidos;
 }
 
 async function buscarPorId(id) {
     const usuario = await usuariosBD.doc(id).get();
-    const usuario1 = new Usuario({id:usuario.id,...usuario.data()});
-    var usuarioValido = {error:true};
-    if (validarDatos(usuario1.getusuario)){
-        usuarioValido = usuario1.getusuario
-    }
-    //console.log(usuarioValido);
-    return usuarioValido
+    const usuario1 = new Usuario({ id: usuario.id, ...usuario.data() });
+    return validarDatos(usuario1.getusuario) ? usuario1.getusuario : { error: true };
 }
 
 async function nuevoUsuario(data) {
-    const {salt,hash}=encriptarPassword(data.password);
-    data.password=hash;
-    data.salt=salt;
-    data.tipoUsuario="usuario";
+    const { salt, hash } = encriptarPassword(data.password);
+    data.password = hash;
+    data.salt = salt;
+    data.tipoUsuario = "usuario";
     const usuario1 = new Usuario(data);
-    var usuarioValido = false;
-    if (validarDatos(usuario1.getusuario)){
+
+    if (validarDatos(usuario1.getusuario)) {
         await usuariosBD.doc().set(usuario1.getusuario);
-        usuarioValido=true;
+        return true;
     }
-    return usuarioValido;
+    return false;
 }
 
 async function borrarUsuario(id) {
     const usuario = await buscarPorId(id);
-    var borrado = false;
-    if(usuario.error != true){
+    if (usuario.error !== true) {
         await usuariosBD.doc(id).delete();
-        borrado = true;
+        return true;
     }
-    //console.log(usuario);
-    return borrado;
+    return false;
 }
 
 async function modificarUsuario(id, data) {
-    // Encriptar la contraseña si se ha proporcionado una nueva
     if (data.password) {
         const { salt, hash } = encriptarPassword(data.password);
         data.password = hash;
         data.salt = salt;
     }
-
-    // Validar que al menos uno de los campos a modificar esté presente
-    const usuarioValido = validarDatos({ ...data, password: data.password || "dummy" });
-    if (!usuarioValido) {
+    if (!validarDatos({ ...data, password: data.password || "dummy" })) {
         return { error: "Datos insuficientes para la modificación" };
     }
 
-    // Actualizar el documento en Firestore
     try {
-        await usuariosBD.doc(id).update(data); // Solo actualiza los campos enviados
+        await usuariosBD.doc(id).update(data);
         return { success: true, message: "Usuario modificado exitosamente" };
     } catch (error) {
         console.error("Error al modificar el usuario:", error);
@@ -89,27 +87,27 @@ async function modificarUsuario(id, data) {
     }
 }
 
+// Función para buscar usuario por nombre
+async function buscarUsuarioPorNombre(nombre) {
+    const usuariosSnapshot = await usuariosBD.get();
+    const usuarios = [];
 
-module.exports={
+    usuariosSnapshot.forEach(doc => {
+        const usuario = doc.data();
+        if (usuario.nombre.toLowerCase().includes(nombre)) {
+            usuarios.push({ id: doc.id, nombre: usuario.nombre });
+        }
+    });
+
+    return usuarios;
+}
+
+module.exports = {
     mostrarUsuarios,
     nuevoUsuario,
     borrarUsuario,
     buscarPorId,
-    modificarUsuario
-}
-
-//borrarUsuario("100");
-//borrarUsuario("200");
-//borrarUsuario("500");
-
-/*data={
-    nombre:"Benito Juarez",
-    usuario:"benito",
-    password:"abc"
-}
-
-nuevoUsuario(data);*/
-
-//buscarPorId("100"); 
-//buscarPorId("200");
-//mostrarUsuarios();
+    modificarUsuario,
+    login,
+    buscarUsuarioPorNombre // Exporta la función
+};

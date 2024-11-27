@@ -1,41 +1,45 @@
+const { productos, usuarios } = require("./conexion"); // Importar las colecciones necesarias
 const ventasBD = require("./conexion").bd.collection("ventas");
 const Venta = require("../clases/VentaClase");
 
 async function nuevaVenta(data) {
-    // Valida que los campos necesarios estén presentes
-    if (!data.idUsuario || !data.idProducto) {
+    if (!data.idUsuario || !data.idProducto || data.cantidad === undefined) {
         throw new Error('Faltan campos necesarios para crear la venta');
     }
 
-    const venta = new Venta(data); // Crea una nueva instancia de Venta con los datos proporcionados
-    
-    const ventaData = venta.getventa; // Obtén el objeto de venta con todos los campos
+    const venta = new Venta(data);
+    const ventaData = venta.getventa;
 
-    // Guarda la venta en Firestore
     await ventasBD.doc().set(ventaData);
     return ventaData;
 }
 
-/*async function mostrarVentas() {
-    const ventasSnapshot = await ventasBD.get();
-    let ventas = [];
-    ventasSnapshot.forEach(doc => {
-        const ventaData = new Venta({ id: doc.id, ...doc.data() });
-        ventas.push(ventaData.getventa);
-    });
-    return ventas;
-}*/
-
 async function mostrarVentas() {
-    const ventasSnapshot = await ventasBD.get();
+    const ventasSnapshot = await ventasBD.where("estatus", "==", "vendido").get();
     let ventas = [];
-    ventasSnapshot.forEach(doc => {
-        const ventaData = { id: doc.id, ...doc.data() };
-        ventas.push(ventaData);
-    });
+
+    for (let doc of ventasSnapshot.docs) {
+        const ventaData = doc.data();
+
+        // Usar las colecciones correctamente para obtener los documentos de producto y usuario
+        const productoDoc = await productos.doc(ventaData.idProducto).get();
+        const usuarioDoc = await usuarios.doc(ventaData.idUsuario).get();
+
+        const venta = {
+            id: doc.id,
+            productoNombre: productoDoc.exists ? productoDoc.data().producto : "Producto no encontrado",
+            usuarioNombre: usuarioDoc.exists ? usuarioDoc.data().nombre : "Usuario no encontrado",
+            cantidad: ventaData.cantidad,
+            fecha: ventaData.fecha,
+            hora: ventaData.hora,
+            estatus: ventaData.estatus,
+        };
+
+        ventas.push(venta);
+    }
+
     return ventas;
 }
-
 
 async function buscarVentaPorId(id) {
     const venta = await ventasBD.doc(id).get();
@@ -58,15 +62,23 @@ async function cancelarVenta(id) {
     return { message: "Venta cancelada" };
 }
 
+// Verifica que todos los IDs sean válidos antes de acceder a los documentos de Firestore
 async function modificarVenta(id, data) {
     const venta = await ventasBD.doc(id).get();
     if (!venta.exists) {
         return { error: "Venta no encontrada" };
     }
 
-    await ventasBD.doc(id).update(data); // Actualiza solo los campos proporcionados
+    // Verifica que los datos incluyen IDs válidos
+    if (!data.idUsuario || !data.idProducto) {
+        throw new Error("Faltan campos necesarios para modificar la venta");
+    }
+
+    await ventasBD.doc(id).update(data);
     return { message: "Venta modificada exitosamente" };
 }
+
+
 
 module.exports = {
     nuevaVenta,
